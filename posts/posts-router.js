@@ -20,7 +20,8 @@ router.get('/:id', (req, res) => {
   const { id } = req.params;
   Posts.findById(id)
     .then(post => {
-      if (post) {
+      console.log(post);
+      if (post.length > 0) {
         res.status(200).json(post);
       } else {
         res.status(404).json({
@@ -43,6 +44,7 @@ router.get('/:id/comments', (req, res) => {
 
   db.findPostComments(id)
     .then(comments => {
+      console.log(comments);
       if (comments.length > 0) {
         res.status(200).json(comments);
       } else {
@@ -61,7 +63,7 @@ router.get('/:id/comments', (req, res) => {
 
 //make a new post
 router.post('/', (req, res) => {
-  if (!(req.body.title && req.body.contents)) {
+  if (!(req.body.title || req.body.contents)) {
     res
       .status(400)
       .json({ errorMessage: 'Please provide title and contents for the post' });
@@ -94,7 +96,8 @@ router.post('/:id/comment', (req, res) => {
     });
   }
   db.findById(req.params.id).then(post => {
-    if (post) {
+    if (post.length > 0) {
+      console.log(post);
       Post.insertComment(comment)
         .then(obj => {
           Post.findCommentById(obj.id).then(com => res.status(201).json(com));
@@ -124,17 +127,22 @@ router.put('/:id', (req, res) => {
   } else {
     Posts.findById(id)
       .then(post => {
-        if (post) {
-          res.status(200);
-          return Posts.update(id, update);
+        if (post.length > 0) {
+          Posts.update(id, update)
+            .then(() => {
+              res.json({ message: 'Post updated' });
+            }) //prosmise
+            .catch(err => {
+              res
+                .status(400)
+                .json({ errorMessage: 'Post could not be modified' });
+            });
         } else {
           res.status(404).json({
             message: 'The post with the specified ID does not exist  '
           });
         }
       })
-      .then(() => Posts.findById(id))
-      .then(post => res.json(post))
       .catch(err => {
         res.status(500).json({
           error: 'The post could not be modified'
@@ -146,20 +154,23 @@ router.put('/:id', (req, res) => {
 // delete post
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
-
-  db.remove(id)
-    .then(deletePost => {
-      if (deletePost) {
-        res.status(204).end();
-      } else {
-        res.status(404).json({
-          errorMessge: 'The post with the specified ID does not exist.'
+  Posts.findById(id).then(post => {
+    if (post.length > 0) {
+      Posts.remove(id)
+        .then(deletePost => {
+          res.status(204).end();
+        })
+        .catch(err => {
+          res
+            .status(500)
+            .json({ errorMessge: 'The user could not be removed' });
         });
-      }
-    })
-    .catch(err => {
-      res.status(500).json({ errorMessge: 'The user could not be removed' });
-    });
+    } else {
+      res.status(404).json({
+        errorMessge: 'The post with the specified ID does not exist.'
+      });
+    }
+  });
 });
 
 module.exports = router;
